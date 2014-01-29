@@ -1,0 +1,18 @@
+using System;
+using System.Reflection;
+using System.Resources;
+using System.Runtime.InteropServices;
+
+
+[assembly: AssemblyTitle("{Name}")]
+
+[assembly: AssemblyCompany("{Company}")]
+[assembly: AssemblyCopyright("{Copyright}")]
+[assembly: AssemblyTrademark("")]
+[assembly: AssemblyCulture("")]
+[assembly: AssemblyConfiguration("")]
+
+[assembly: NeutralResourcesLanguage("en-US")]
+
+// for OOB servicing
+[assembly: AssemblyMetadata("Serviceable", "True")]

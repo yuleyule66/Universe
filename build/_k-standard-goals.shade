@@ -12,9 +12,28 @@ default TEST_DIR='${Path.Combine(TARGET_DIR, "test")}'
   E("K_BUILD_VERSION", BuildNumber);
 }
 
+content var='assemblyInfoTemplate' include href='assemblyinfo.txt'
+
 #repo-initialize target='initialize'
   k-restore
   k-generate-projects solutionPath='${BASE_DIR}'
+
+#assembly-info target='initialize'
+  @{
+    foreach(var projectFile in Files.Include("src/**/project.json"))
+    {
+      string projectDir = Path.GetDirectoryName(projectFile);
+      string projectName = projectDir.Substring(Path.GetDirectoryName(projectDir).Length).Trim((char)'/');
+      string path = Path.Combine(projectDir, "Properties");
+
+      CreateDirectory(path);
+
+      assemblyInfoTemplate = assemblyInfoTemplate.Replace("{Name}", projectName)
+                                                 .Replace("{Description}", )
+
+      File.WriteAllText(Path.Combine(path, "AssemblyInfo.generated.cs"), assemblyInfoTemplate);
+    }
+  }
 
 #target-dir-clean target='clean'
   directory delete="${TARGET_DIR}"
@@ -38,3 +57,6 @@ functions @{
     string E(string key) { return Environment.GetEnvironmentVariable(key); }
     void E(string key, string value) { Environment.SetEnvironmentVariable(key, value); }
 }
+
+macro name='CreateDirectory' create='string'
+    directory
