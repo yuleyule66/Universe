@@ -40,6 +40,18 @@ namespace TCDependencyManager
             return true;
         }
 
+        public List<TeamCityProject> GetProjects()
+        {
+            string url = "httpAuth/app/rest/buildTypes/";
+            var client = GetClient();
+            var response = client.GetAsync(url).Result;
+            var result = response.EnsureSuccessStatusCode()
+                                    .Content.ReadAsAsync<Projects>()
+                                    .Result;
+
+            return result.BuildType;
+        }
+
         public List<Trigger> GetTriggers(string configId)
         {
             string url = String.Format(TriggersEndPoint, configId);
@@ -50,38 +62,43 @@ namespace TCDependencyManager
                 // We don't have the config setup on the CI. That is ok.
                 return null;
             }
-            var triggers =  response.EnsureSuccessStatusCode()
+            var triggers = response.EnsureSuccessStatusCode()
                                     .Content.ReadAsAsync<Triggers>()
                                     .Result;
 
-            return triggers.Trigger;
+            return triggers.Trigger ?? new List<Trigger>();
         }
 
-        public void AddFinishTriggers(string configId, IEnumerable<string> finishConfigIds)
+        public void DeleteTrigger(string configId, string triggerId)
         {
-            foreach (var finishConfigId in finishConfigIds)
+            string url = String.Format(TriggersEndPoint, configId) + "/" + triggerId;
+            var client = GetClient();
+            var response = client.DeleteAsync(url).Result;
+            response.EnsureSuccessStatusCode();
+        }
+
+        public void AddComplexFinishTriggers(string configId, IEnumerable<string> finishConfigIds)
+        {
+            var props = new Properties
             {
-                var props = new Properties
+                Property = new List<NameValuePair>
                 {
-                    Property = new List<NameValuePair>
-                    {
-                        new NameValuePair("afterSuccessfulBuildOnly", "true"),
-                        new NameValuePair("dependsOn", finishConfigId)
-                    }
-                };
+                    new NameValuePair("complexfinish.build.trigger.dependencies", String.Join(";", finishConfigIds))
+                }
+            };
 
-                var trigger = new Trigger
-                {
-                    Id = "Trigger_" + finishConfigId,
-                    Properties = props,
-                    Type = "buildDependencyTrigger"
-                };
+            var trigger = new Trigger
+            {
+                Id = "complexFinishBuildTrigger",
+                Properties = props,
+                Type = "complexFinishBuildTrigger"
+            };
 
-                string url = String.Format(TriggersEndPoint, configId);
-                var client = GetClient();
-                var response = client.PostAsync(url, GetJsonContent(trigger)).Result;
-                response.EnsureSuccessStatusCode();
-            }
+            string url = String.Format(TriggersEndPoint, configId);
+            var client = GetClient();
+            var response = client.PostAsync(url, GetJsonContent(trigger)).Result;
+            response.EnsureSuccessStatusCode();
+
         }
 
         public void SetDependencies(string configId, IEnumerable<string> dependencies)
@@ -121,25 +138,25 @@ namespace TCDependencyManager
             }
         }
 
-        public void EnsureDependencies(string configId, IEnumerable<string> dependencies)
-        {
-            List<string> currentDependencies;
-            if (TryGetSnapshotDependencies(configId, out currentDependencies))
-            {
-                dependencies = dependencies.Select(NormalizeId);
+        //public void EnsureDependencies(string configId, IEnumerable<string> dependencies)
+        //{
+        //    List<string> currentDependencies;
+        //    if (TryGetSnapshotDependencies(configId, out currentDependencies))
+        //    {
+        //        dependencies = dependencies.Select(NormalizeId);
 
-                var dependenciesToAdd = dependencies.Except(currentDependencies, StringComparer.OrdinalIgnoreCase);
+        //        var dependenciesToAdd = dependencies.Except(currentDependencies, StringComparer.OrdinalIgnoreCase);
 
-                SetDependencies(configId, dependenciesToAdd);
+        //        SetDependencies(configId, dependenciesToAdd);
 
-                var currentTriggers = GetTriggers(configId)
-                                            .Where(t => t.Type.Equals("buildDependencyTrigger", StringComparison.OrdinalIgnoreCase))
-                                            .Select(t => t.Properties.Property.First(f => f.Name.Equals("dependsOn", StringComparison.OrdinalIgnoreCase)).Value);
+        //        var currentTriggers = GetTriggers(configId)
+        //                                    .Where(t => t.Type.Equals("buildDependencyTrigger", StringComparison.OrdinalIgnoreCase))
+        //                                    .Select(t => t.Properties.Property.First(f => f.Name.Equals("dependsOn", StringComparison.OrdinalIgnoreCase)).Value);
 
-                var triggersToAdd = dependencies.Except(currentTriggers);
-                AddFinishTriggers(configId, triggersToAdd);
-            }
-        }
+        //        var triggersToAdd = dependencies.Except(currentTriggers);
+        //        AddFinishTriggers(configId, triggersToAdd);
+        //    }
+        //}
 
         private static StringContent GetJsonContent<TVal>(TVal value)
         {

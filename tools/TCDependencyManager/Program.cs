@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics.Contracts;
 using System.Linq;
 using System.Net;
+using System.Xml.Linq;
 
 namespace TCDependencyManager
 {
@@ -12,38 +13,45 @@ namespace TCDependencyManager
 
         static int Main(string[] args)
         {
-            var teamCityUrl = GetEnv("TEAMCITY_SERVERURL");
-            var teamCityUser = GetEnv("TEAMCITY_USER");
-            var teamCityPass = GetEnv("TEAMCITY_PASSWORD");
-            var githubCreds = GetEnv("GITHUB_CREDS");
-
-            var teamCity = new TeamCityAPI(teamCityUrl, 
-                                           new NetworkCredential(teamCityUser, teamCityPass));
-
-            var gitHub = new GitHubAPI(githubCreds);
-
-            Console.WriteLine("Listing GitHub repos");
-            var repos = gitHub.GetRepos()
-                           .Where(repo => !_excludedRepos.Contains(repo.Name, StringComparer.OrdinalIgnoreCase))
-                           .ToList();
-
-            Console.WriteLine("Listing projects under repos");
-            var projects = repos.AsParallel()
-                                .SelectMany(repo => gitHub.GetProjects(repo))
-                                .ToList();
-
-
-            Console.WriteLine("Creating dependency tree");
-            MapRepoDependencies(projects);
-
-            Console.WriteLine("Ensuring dependencies are consistent on TeamCity");
-            foreach (var repo in repos.Where(p => p.Dependencies.Any()))
+            if (args.Length < 4)
             {
-                var dependencies = repo.Dependencies
-                                       .Select(r => r.Name)
-                                       .Concat(new[] { "CoreCLR" });
-                teamCity.EnsureDependencies(repo.Name, dependencies);
+                Console.Error.WriteLine("Usage TCDependencyManager.exe ServerUrl UserName Password CI_DGML_PATH");
             }
+
+            var teamCityUrl = args[0];
+            var teamCityUser = args[1];
+            var teamCityPass = args[2];
+
+            var teamCity = new TeamCityAPI(teamCityUrl,
+                                           new NetworkCredential(teamCityUser, teamCityPass));
+            string ns = "http://schemas.microsoft.com/vs/2009/dgml";
+
+            var projects = teamCity.GetProjects().Select(p => p.Id);//.Except(_excludedRepos, StringComparer.OrdinalIgnoreCase);
+
+            var nodes = new XElement(XName.Get("Nodes", ns));
+            var links = new XElement(XName.Get("Links", ns));
+            
+            var root = new XElement(XName.Get("DirectedGraph", ns), nodes, links);
+            var doc = new XDocument(root);
+
+            
+            foreach (var project in projects)
+            {
+                nodes.Add(new XElement(XName.Get("Node", ns), new XAttribute("Id", project)));
+                var dependencies = teamCity.GetTriggers(project)
+                                           .FirstOrDefault(t => t.Type.Equals("complexFinishBuildTrigger", StringComparison.OrdinalIgnoreCase));
+
+                if (dependencies != null)
+                {
+                    foreach (var dependency in dependencies.Properties.Property[0].Value.Split(';'))
+                    {
+                        links.Add(new XElement(XName.Get("Link", ns), new XAttribute("Target", project), new XAttribute("Source", dependency.Replace(".", ""))));
+                    }
+
+                }
+            }
+            doc.Save(args[3]);
+
             return 0;
         }
 
@@ -65,16 +73,5 @@ namespace TCDependencyManager
 
             }
         }
-
-        private static string GetEnv(string key)
-        {
-            var envValue = Environment.GetEnvironmentVariable(key);
-            if (String.IsNullOrEmpty(envValue))
-            {
-                throw new ArgumentNullException(key);
-            }
-            return envValue;
-        }
-
     }
 }

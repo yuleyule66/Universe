@@ -15,4 +15,9 @@ namespace TCDependencyManager
 
         public Properties Properties { get; set; }
     }
+
+    public class Projects
+    {
+        public List<TeamCityProject> BuildType { get; set; }
+    }
 }
