@@ -8,14 +8,20 @@ projectFile=''
 
 configuration=''
     Optional. The configuration to build in. Defaults to 'debug'.
+
+framework=''
+    Optional. The target framework to build. Defaults to all project frameworks.
 */}
 
 default configuration = 'debug'
 var projectFolder='${Path.GetDirectoryName(projectFile)}'
 var projectName='${Path.GetFileName(projectFolder)}'
 var projectBin='${Path.Combine(projectFolder, "bin", configuration)}'
+default framework=''
+var frameworkOption=''
+set frameworkOption='--framework ${framework}' if='!string.IsNullOrEmpty(framework)'
 
 directory delete="${projectBin}"
-exec program='cmd' commandline='/C kpm build ${projectFolder} --configuration ${configuration}' if='!IsMono'
-exec program='kpm' commandline='build ${projectFolder} --configuration ${configuration}' if='IsMono'
+exec program='cmd' commandline='/C kpm build ${projectFolder} --configuration ${configuration} ${frameworkOption}' if='!IsMono'
+exec program='kpm' commandline='build ${projectFolder} --configuration ${configuration} ${frameworkOption}' if='IsMono'
 copy sourceDir='${projectBin}' outputDir='${Path.Combine(BUILD_DIR, projectName)}'
