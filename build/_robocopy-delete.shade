@@ -1,0 +1,8 @@
+-// Deletes a directory using robocopy such that long paths aren't an issue
+default parentDir = '${Directory.GetParent(dir).FullName}'
+default tempDir = '${Path.Combine(parentDir, "__emp_dir")}'
+
+exec program='cmd' commandline='/C mkdir ${tempDir}'
+exec program='cmd' commandline='/C robocopy ${tempDir} ${dir} /mir'
+exec program='cmd' commandline='/C rmdir ${tempDir}'
+exec program='cmd' commandline='/C rmdir ${dir}'
