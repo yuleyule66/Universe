@@ -13,4 +13,4 @@ sourcePackagesDir=''
 }
 
 exec program='cmd' commandline='/C kpm packages add ${package}' if='!IsMono' each='var package in packages'
-exec program='kpm' commandline='packages add ' if='IsMono' each='var package in packages'
+exec program='kpm' commandline='packages add ${package}' if='IsMono' each='var package in packages'
