@@ -40,7 +40,11 @@ projectFile=''
         
         foreach (var framework in targetFrameworks)
         {
-            if (framework.StartsWith("net", StringComparison.OrdinalIgnoreCase)
+            if(IsMono)
+            {
+                K("test -parallel none", projectFolder, "");
+            } 
+            else if (framework.StartsWith("net", StringComparison.OrdinalIgnoreCase)
                 || (framework.StartsWith("aspnet", StringComparison.OrdinalIgnoreCase)
                     && !framework.StartsWith("aspnetcore", StringComparison.OrdinalIgnoreCase)))
             {
