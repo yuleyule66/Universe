@@ -40,10 +40,15 @@ functions
             "Scaffolding",
             "Security",
             "SignalR-Server",
+            "SignalR-SQLServer",
+            "SignalR-Redis",
             "StaticFiles",
             "WebListener",
             "KestrelHttpServer",
             "WebSockets",
+            "Session",
+            "UserSecrets",
+            "CORS",
             "Entropy",
         };
         
@@ -421,9 +426,10 @@ functions
             var nonDefaultRepos = new[]
             {
               "KRuntime",
-              "MusicStore"
+              "MusicStore",
+              "Coherence"
             };
-            return Enumerable.Concat(repos, nonDefaultRepos);
+            return Enumerable.Concat(nonDefaultRepos, repos);
         }
 
         void CloneOrUpdate(string repo)
