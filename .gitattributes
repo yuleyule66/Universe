@@ -4,9 +4,9 @@
 * text=auto
 
 ###############################################################################
-# Make sh files under the build directory always have LF as line endings
+# Make sh files always have LF as line endings
 ###############################################################################
-build/*.sh eol=lf
+*.sh eol=lf
 
 
 ###############################################################################
