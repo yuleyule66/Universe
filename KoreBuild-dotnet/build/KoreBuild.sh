@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 
-if [ $(uname) == Darwin ]; then
+if test `uname` = Darwin; then
     version=$(<cli.version.darwin)
 else
     version=$(<cli.version.unix)
