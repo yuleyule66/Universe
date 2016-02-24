@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 
+version=$(<nix.cli.version)
 [ -z "$KOREBUILD_DOTNET_CHANNEL" ] && KOREBUILD_DOTNET_CHANNEL=beta
-[ -z "$KOREBUILD_DOTNET_VERSION" ] && KOREBUILD_DOTNET_VERSION=1.0.0.001496
+[ -z "$KOREBUILD_DOTNET_VERSION" ] && KOREBUILD_DOTNET_VERSION=version
 
 targets=""
 filename=$0
