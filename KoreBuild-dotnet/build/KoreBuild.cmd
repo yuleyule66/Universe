@@ -14,7 +14,7 @@ IF "%KOREBUILD_DOTNET_CHANNEL%"=="" (
 )
 
 IF "%KOREBUILD_DOTNET_VERSION%"=="" (
-    SET /P KOREBUILD_DOTNET_VERSION=<win.cli.version
+    SET /P KOREBUILD_DOTNET_VERSION=<cli.version.win
 )
 
 IF NOT EXIST %~dp0Sake  (

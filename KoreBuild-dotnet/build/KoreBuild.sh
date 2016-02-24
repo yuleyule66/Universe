@@ -1,6 +1,11 @@
 #!/usr/bin/env bash
 
-version=$(<nix.cli.version)
+if [ $(uname) == Darwin ]; then
+    version=$(<cli.version.darwin)
+else
+    version=$(<cli.version.unix)
+fi
+
 [ -z "$KOREBUILD_DOTNET_CHANNEL" ] && KOREBUILD_DOTNET_CHANNEL=beta
 [ -z "$KOREBUILD_DOTNET_VERSION" ] && KOREBUILD_DOTNET_VERSION=version
 
