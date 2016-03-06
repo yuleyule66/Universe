@@ -14,6 +14,9 @@ use import="BuildEnv"
 
 functions
     @{
+        private static readonly object commitHashLock = new object();
+        private static readonly string CommitHashFile = "commit.hashes"; 
+    
         private static bool Quiet { get; set; }
 
         static string BUILD_BRANCH = Environment.GetEnvironmentVariable("BUILD_BRANCH") ?? "dev";
@@ -24,7 +27,7 @@ functions
         // Doesn't build on Mono since their contracts don't match
         string[] excludeReposOnMono = new[] { "Helios" };
         IEnumerable<string> repositories = GetRepositoriesToBuild();
-
+        
         static bool useHttps = UseHttps(BASE_DIR);
         static string gitHubUriPrefix = useHttps ? "https://github.com/aspnet/" : "git@github.com:aspnet/";
     }
@@ -642,6 +645,11 @@ functions
                     return;
                 }
             }
+            lock (commitHashLock)
+            {
+                File.AppendAllText(CommitHashFile, repo + ":");
+                GitCommand(repo, "rev-parse HEAD >> .." + Path.DirectorySeparatorChar + CommitHashFile);
+            }
         }
 
         string FormatForTeamCity(string input)
@@ -709,7 +717,7 @@ functions
 
             return true;
         }
-
+     
         static IEnumerable<string> GetRepositoriesToBuild()
         {
             IEnumerable<string> reposToBuild = new HashSet<string>(StringComparer.OrdinalIgnoreCase) {
