@@ -1,0 +1,37 @@
+<Project>
+
+  <Import Project="..\repositories.props" />
+
+  <UsingTask TaskName="Microsoft.AspNetCore.UniverseTasks.DisplaySolutionGraph" AssemblyFile="$(MSBuildThisFileDirectory)tasks\bin\$(Configuration)\netstandard1.3\Internal.AspNetCore.UniverseTasks.dll" />
+
+  <Target Name="GetAllSolutions">
+    <MSBuild Projects="$(MSBuildProjectFullPath)"
+      Targets="_ResolveSolutions"
+      Properties="RepositoryRoot=$(RepositoryRoot)%(Repositories.Identity)\;Configuration=$(Configuration)"
+      Condition="'%(Repositories.Identity)' != ''"
+      BuildInParallel="true">
+
+      <Output TaskParameter="TargetOutputs" ItemName="_Solutions" />
+    </MSBuild>
+
+    <Message Text="Found solutions:%0A@(_Solutions->'%(Identity)', '%0A')" />
+  </Target>
+
+  <Target Name="LoadRestoreInputItems">
+    <Message Text="Examining the dependency graph of @(_Solutions -> Count()) solutions. This may take some time..." Importance="high" />
+    <MSBuild Targets="_LoadRestoreGraphEntryPoints"
+      Projects="@(_Solutions)"
+      Properties="BuildNumber=$(BuildNumber)"
+      RemoveProperties="$(_BuildPropertiesToRemove)"
+      BuildInParallel="true" >
+      <Output
+        TaskParameter="TargetOutputs"
+        ItemName="RestoreGraphProjectInputItems" />
+    </MSBuild>
+  </Target>
+
+  <Target Name="GetBuildGraph" DependsOnTargets="GetAllSolutions;LoadRestoreInputItems;_GenerateRestoreGraph">
+    <DisplaySolutionGraph RestoreGraphEntries="@(_RestoreGraphEntry)" Repositories="@(Repositories)" />
+  </Target>
+
+</Project>
