@@ -1,0 +1,69 @@
+<Project>
+  <Import Project="$(_BuildGraphFile)" />
+
+  <Target Name="BuildRepositories">
+    <ItemGroup>
+      <BatchedRepository Include="$(MSBuildProjectFullPath)">
+        <AdditionalProperties>
+          RepositoryToBuild=%(RepositoryToBuildInOrder.Identity);
+          BuildRepositoryRoot=$(_CloneRepositoryRoot)%(RepositoryToBuildInOrder.Identity)\
+        </AdditionalProperties>
+        <BuildGroup>%(RepositoryToBuildInOrder.Order)</BuildGroup>
+      </BatchedRepository>
+    </ItemGroup>
+
+    <PropertyGroup>
+      <BatchBuilds Condition="$(BuildInParallel) AND '$(CompileOnly)'=='true'">true</BatchBuilds>
+      <BatchBuilds Condition="'$(BatchBuilds)'==''">false</BatchBuilds>
+    </PropertyGroup>
+
+    <MSBuild
+      Projects="@(BatchedRepository)"
+      BuildInParallel="$(BatchBuilds)"
+      Targets="_BuildRepository"
+      Properties="BuildGroup=%(BatchedRepository.BuildGroup)" />
+  </Target>
+
+  <Target Name="_BuildRepository" DependsOnTargets="_PinVersions">
+    <PropertyGroup>
+      <BuildScriptToExecute Condition="'$(OS)'!='Windows_NT'">build.sh</BuildScriptToExecute>
+      <BuildScriptToExecute Condition="'$(OS)'=='Windows_NT'">build.cmd</BuildScriptToExecute>
+      <RepositoryArtifactsDirectory>$(BuildRepositoryRoot)artifacts\build\</RepositoryArtifactsDirectory>
+    </PropertyGroup>
+
+    <Message Text="============ Building $(RepositoryToBuild) ============" Importance="High" />
+    <Exec
+      Command="./$(BuildScriptToExecute) $(_RepositoryBuildTargets) /p:BuildNumber=$(BuildNumber) /p:Configuration=$(Configuration)"
+      IgnoreStandardErrorWarningFormat="true"
+      WorkingDirectory="$(BuildRepositoryRoot)" />
+
+    <ItemGroup>
+      <ArtifactsToCopy Include="$(RepositoryArtifactsDirectory)*" />
+    </ItemGroup>
+
+    <Copy
+      SourceFiles="@(ArtifactsToCopy)"
+      DestinationFolder="$(BuildDir)" />
+
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)PublishPackages.targets"
+      Condition="'$(PublishPackages)'=='true'"
+      Properties="
+        PackagesDirectory=$(RepositoryArtifactsDirectory);
+        DotNetPath=$(DotNetPath);
+        NuGetFeed=$(NuGetPublishVolatileFeed);
+        APIKey=$(APIKey)" />
+
+    <Message Text="============ Done building $(RepositoryToBuild) ============" Importance="High" />
+  </Target>
+
+  <Target Name="_PinVersions">
+    <PropertyGroup>
+      <PinToolBinary>$(RepositoryRoot)tools\PinVersions\bin\$(Configuration)\netcoreapp1.1\PinVersions.dll</PinToolBinary>
+      <PinVersionArgs>$(DotNetPath) $(PinToolBinary) --graph-specs-root &quot;$(_RestoreGraphSpecsDirectory) &quot; -s &quot;$(BuildDir) &quot; &quot;$(BuildRepositoryRoot) &quot;</PinVersionArgs>
+      <PinVersionArgs Condition="Exists('$(_DependencyPackagesDirectory)')">$(PinVersionArgs) -s &quot;$(_DependencyPackagesDirectory) &quot;</PinVersionArgs>
+    </PropertyGroup>
+
+    <Exec Command="$(PinVersionArgs)" />
+  </Target>
+</Project>
