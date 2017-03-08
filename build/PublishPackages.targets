@@ -1,9 +1,0 @@
-<Project>
-  <Target Name="PublishPackages">
-    <ItemGroup>
-      <PackagesToPush Include="$(PackagesDirectory)*.nupkg" />
-    </ItemGroup>
-
-    <Exec Command="$(DotNetPath) nuget push &quot;%(PackagesToPush.Identity)&quot; -s $(NuGetFeed) -k $(APIKEY)" />
-  </Target>
-</Project>

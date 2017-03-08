@@ -5,14 +5,11 @@ VisualStudioVersion = 15.0.26228.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "BuildGraph", "tools\BuildGraph\BuildGraph.csproj", "{B0621D49-4770-4552-9425-D6BD2CF0FB50}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AddCommitInfo", "tools\AddCommitInfo\AddCommitInfo.csproj", "{0DC180DF-D87B-448A-BCDE-2A648F41103E}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PinVersions", "tools\PinVersions\PinVersions.csproj", "{DACA9DFB-508E-45EA-A5CF-C0F5C2BA181B}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "shared", "shared", "{085280EC-7055-426A-BF9C-1B692B9599AB}"
 	ProjectSection(SolutionItems) = preProject
 		tools\shared\DependencyGraphSpecProvider.cs = tools\shared\DependencyGraphSpecProvider.cs
-		tools\shared\DotNetMuxer.cs = tools\shared\DotNetMuxer.cs
 	EndProjectSection
 EndProject
 Global

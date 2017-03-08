@@ -1,6 +1,5 @@
 <Project>
   <PropertyGroup>
-    <NuGetPublishFeed>https://dotnet.myget.org/F/aspnetcore-ci-dev/api/v2/package</NuGetPublishFeed>
     <NuGetPublishVolatileFeed>https://dotnet.myget.org/F/aspnetcore-volatile-dev/api/v2/package</NuGetPublishVolatileFeed>
 
     <_BuildGraphFile>$(BuildDir)BuildGraph.proj</_BuildGraphFile>
@@ -9,11 +8,11 @@
     <_CommitsFile>$(RepositoryRoot).deps\build\RepositoryCommits.proj</_CommitsFile>
     <_RestoreGraphSpecsDirectory>$(RepositoryRoot)obj\package-specs\</_RestoreGraphSpecsDirectory>
 
-    <_RepositoryBuildTargets Condition="'$(_RepositoryBuildTargets)'=='' AND '$(CompileOnly)'=='true'">/t:Package /t:VerifyPackages</_RepositoryBuildTargets>
-    <_RepositoryBuildTargets Condition="'$(_RepositoryBuildTargets)'==''">/t:Verify</_RepositoryBuildTargets>
+    <_RepositoryBuildTargets Condition="'$(_RepositoryBuildTargets)'=='' AND '$(CompileOnly)'=='true'">Package;VerifyPackages</_RepositoryBuildTargets>
+    <_RepositoryBuildTargets Condition="'$(_RepositoryBuildTargets)'==''">Verify</_RepositoryBuildTargets>
     <_RepositoriesWithCommitsFile>$(RepositoryRoot).deps\build\Repositories.props</_RepositoriesWithCommitsFile>
 
-    <PrepareDependsOn>$(PrepareDependsOn);FilterRepositories</PrepareDependsOn>
+    <PrepareDependsOn>$(PrepareDependsOn);CleanUniverseArtifacts</PrepareDependsOn>
     <CleanDependsOn>$(CleanDependsOn);CleanUniverseArtifacts</CleanDependsOn>
     <BuildDependsOn>$(BuildDependsOn);CloneRepositories;BuildRepositories</BuildDependsOn>
   </PropertyGroup>
@@ -29,12 +28,11 @@
     Condition="Exists('$(_CommitsFile)')" />
 
   <Target Name="CleanUniverseArtifacts">
-    <RemoveDir Directories="obj" Condition="Exists('obj')" />
+    <RemoveDir Directories="$(RepositoryRoot)obj" Condition="Exists('$(RepositoryRoot)obj')" />
     <RemoveDir Directories="$(_CloneRepositoryRoot)" Condition="Exists('$(_CloneRepositoryRoot)')" />
-    <RemoveDir Directories="$(_ArtifactsPackagesDirectory)" Condition="Exists('$(_ArtifactsPackagesDirectory)')" />
   </Target>
 
-  <Target Name="FilterRepositories">
+  <Target Name="_FilterRepositories">
     <ItemGroup Condition="'$(KOREBUILD_REPOSITORY_INCLUDE)'!=''">
       <_RepositoriesToInclude Include="$(KOREBUILD_REPOSITORY_INCLUDE)" />
       <Repository
@@ -47,13 +45,13 @@
       <Repository Remove="@(RepositoriesToExclude)" />
     </ItemGroup>
 
-    <Warning Text="KOREBUILD_REPOSITORY_EXCLUDE AND KOREBUILD_REPOSITORY_INCLUDE are specified."
+    <Error Text="KOREBUILD_REPOSITORY_EXCLUDE AND KOREBUILD_REPOSITORY_INCLUDE are specified."
       Condition="'$(KOREBUILD_REPOSITORY_INCLUDE)' != '' AND '$(KOREBUILD_REPOSITORY_EXCLUDE)' != ''" />
 
     <Message Text="%(Repository.CloneUrl)" />
   </Target>
 
-  <Target Name="CloneRepositories">
+  <Target Name="CloneRepositories" DependsOnTargets="_FilterRepositories">
     <ItemGroup>
       <_CloneRepository Include="$(MSBuildProjectFullPath)">
         <AdditionalProperties>
@@ -61,13 +59,11 @@
           CloneUrl=%(Repository.CloneUrl);
           CloneBranch=%(Repository.Branch);
           CloneRepositoryCommit=%(Repository.Commit);
-          ShallowClone=true;
           UseGateBranch=$(UseGateBranch)
         </AdditionalProperties>
       </_CloneRepository>
     </ItemGroup>
 
-    <RemoveDir Directories="$(_CloneRepositoryRoot)" Condition="Exists('$(_CloneRepositoryRoot)')" />
     <MakeDir Directories="$(_CloneRepositoryRoot)" />
 
     <MSBuild Projects="@(_CloneRepository)"
@@ -107,26 +103,30 @@
   </Target>
 
   <Target Name="BuildRepositories"
-     DependsOnTargets="_FindDotNetPath;_GenerateRestoreGraphSpecs;_GenerateBuildGraph;_UpdateNuGetConfig;_CreateRepositoriesListWithCommits">
+     DependsOnTargets="_FilterRepositories;_FindDotNetPath;_GenerateRestoreGraphSpecs;_GenerateBuildGraph;_UpdateNuGetConfig;_CreateRepositoriesListWithCommits">
 
-    <MSBuild
-      Projects="$(MSBuildThisFileDirectory)RepositoryBuild.targets"
-      Targets="BuildRepositories"
-      Properties="
-        APIKey=$(APIKey);
-        BuildDir=$(BuildDir);
+    <PropertyGroup>
+      <_BuildRepositoryProperties>
+        UniverseBuildDir=$(BuildDir);
         BuildInParallel=$(BuildInParallel);
         BuildNumber=$(BuildNumber);
         Configuration=$(Configuration);
         DotNetPath=$(DotNetPath);
-        NuGetPublishVolatileFeed=$(NuGetPublishVolatileFeed);
-        PublishPackages=$(PublishPackages);
+        KoreBuildDirectory=$(MSBuildProjectDirectory)\;
+        KoreBuildProject=$(MSBuildProjectFile);
         RepositoryRoot=$(RepositoryRoot);
         _BuildGraphFile=$(_BuildGraphFile);
         _CloneRepositoryRoot=$(_CloneRepositoryRoot);
         _DependencyPackagesDirectory=$(_DependencyPackagesDirectory);
         _RepositoryBuildTargets=$(_RepositoryBuildTargets);
-        _RestoreGraphSpecsDirectory=$(_RestoreGraphSpecsDirectory)" />
+        _RestoreGraphSpecsDirectory=$(_RestoreGraphSpecsDirectory)
+      </_BuildRepositoryProperties>
+    </PropertyGroup>
+
+    <MSBuild
+      Projects="$(MSBuildThisFileDirectory)RepositoryBuild.targets"
+      Targets="BuildRepositories"
+      Properties="$(_BuildRepositoryProperties)" />
 
     <MSBuild
       Projects="$(MSBuildThisFileDirectory)PublishPackages.targets"
@@ -168,13 +168,15 @@
       SourceUri="$(_DependencyPackagesDirectory)"
       Condition="Exists('$(_DependencyPackagesDirectory)')" />
 
+    <MakeDir Directories="$(BuildDir)" Condition="!Exists('$(BuildDir)')" />
+
     <UpdatePackageSource
       NuGetConfigPath="$(_CloneRepositoryRoot)%(Repository.Identity)\NuGet.config"
       SourceName="Artifacts"
       SourceUri="$(BuildDir)" />
   </Target>
 
-  <Target Name="_CreateRepositoriesListWithCommits" DependsOnTargets="_FindDotNetPath">
+  <Target Name="_CreateRepositoriesListWithCommits" DependsOnTargets="_GetRepositoryCommits">
     <PropertyGroup>
       <RepositoryFileWithCommit>$(BuildDir)Repositories.props</RepositoryFileWithCommit>
     </PropertyGroup>
@@ -182,9 +184,32 @@
       SourceFiles="$(MSBuildThisFileDirectory)Repositories.props"
       DestinationFiles="$(RepositoryFileWithCommit)" />
 
-    <Exec
-      Command="$(DotNetPath) run -r &quot;$(_CloneRepositoryRoot) &quot; $(RepositoryFileWithCommit)"
-      WorkingDirectory="$(RepositoryRoot)tools\AddCommitInfo" />
+    <XmlPoke2
+      XmlInputPath="$(RepositoryFileWithCommit)"
+      Query="//Repository[@Include='%(Repository.Identity)']/@Commit"
+      Value="%(Repository.Commit)" />
+  </Target>
+
+  <!-- Based on the solution here: http://stackoverflow.com/a/11331566 -->
+  <Target Name="_GetRepositoryCommits" Outputs="%(Repository.Identity)">
+    <PropertyGroup>
+      <RepositoryCloneDirectory>$(_CloneRepositoryRoot)%(Repository.Identity)</RepositoryCloneDirectory>
+    </PropertyGroup>
+
+    <Error Text="%(Repository.Identity) has not been cloned."
+      Condition="!Exists('$(RepositoryCloneDirectory)')" />
+
+    <GetGitCommitInfo WorkingDirectory="$(RepositoryCloneDirectory)">
+      <Output TaskParameter="CommitHash" PropertyName="_Hash" />
+    </GetGitCommitInfo>
+
+    <ItemGroup>
+      <Repository Update="%(Identity)" Commit="$(_Hash)" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_Hash></_Hash>
+    </PropertyGroup>
   </Target>
 
   <Target Name="_FindDotNetPath">

@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using Microsoft.DotNet.Cli.Utils;
 using NuGet.ProjectModel;
 
 namespace UniverseTools
@@ -10,6 +11,7 @@ namespace UniverseTools
     {
         private readonly string _packageSpecDirectory;
         private readonly bool _deleteSpecDirectoryOnDispose;
+        private readonly string _muxerPath;
 
         public DependencyGraphSpecProvider(string packageSpecDirectory)
             : this(packageSpecDirectory, deleteSpecDirectoryOnDispose: false)
@@ -20,6 +22,7 @@ namespace UniverseTools
         {
             _packageSpecDirectory = packageSpecDirectory;
             _deleteSpecDirectoryOnDispose = deleteSpecDirectoryOnDispose;
+            _muxerPath = new Muxer().MuxerPath;
         }
 
         public static DependencyGraphSpecProvider Default { get; } =
@@ -37,9 +40,9 @@ namespace UniverseTools
             return DependencyGraphSpec.Load(outputFile);
         }
 
-        private static void RunMSBuild(string solutionPath, string outputFile)
+        private void RunMSBuild(string solutionPath, string outputFile)
         {
-            var psi = new ProcessStartInfo(DotNetMuxer.MuxerPathOrDefault());
+            var psi = new ProcessStartInfo(_muxerPath);
 
             var arguments = new List<string>
             {

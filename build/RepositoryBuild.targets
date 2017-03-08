@@ -26,33 +26,47 @@
 
   <Target Name="_BuildRepository" DependsOnTargets="_PinVersions">
     <PropertyGroup>
-      <BuildScriptToExecute Condition="'$(OS)'!='Windows_NT'">build.sh</BuildScriptToExecute>
-      <BuildScriptToExecute Condition="'$(OS)'=='Windows_NT'">build.cmd</BuildScriptToExecute>
+      <RepositoryKoreBuildDirectory>$(BuildRepositoryRoot).build\</RepositoryKoreBuildDirectory>
       <RepositoryArtifactsDirectory>$(BuildRepositoryRoot)artifacts\build\</RepositoryArtifactsDirectory>
     </PropertyGroup>
 
+    <ItemGroup>
+      <KoreBuildFiles Include="$(KoreBuildDirectory)**\*" />
+    </ItemGroup>
+
     <Message Text="============ Building $(RepositoryToBuild) ============" Importance="High" />
-    <Exec
-      Command="./$(BuildScriptToExecute) $(_RepositoryBuildTargets) /p:BuildNumber=$(BuildNumber) /p:Configuration=$(Configuration)"
-      IgnoreStandardErrorWarningFormat="true"
-      WorkingDirectory="$(BuildRepositoryRoot)" />
+    <Copy SourceFiles="@(KoreBuildFiles)" DestinationFolder="$(RepositoryKoreBuildDirectory)%(RecursiveDir)" />
 
     <ItemGroup>
-      <ArtifactsToCopy Include="$(RepositoryArtifactsDirectory)*" />
+      <RepositoryKoreBuildProject Include="$(RepositoryKoreBuildDirectory)$(KoreBuildProject)">
+        <AdditionalProperties>
+          RepositoryRoot=$(BuildRepositoryRoot);
+          BuildNumber=$(BuildNumber);
+          Configuration=$(Configuration)
+        </AdditionalProperties>
+      </RepositoryKoreBuildProject>
+    </ItemGroup>
+
+    <MSBuild
+      Projects="@(RepositoryKoreBuildProject)"
+      Targets="Restore"
+      Properties="PreflightRestore=true" />
+
+    <MSBuild
+      Projects="@(RepositoryKoreBuildProject)"
+      Targets="$(_RepositoryBuildTargets)" />
+
+    <ItemGroup>
+      <RepositoryArtifacts Include="$(RepositoryArtifactsDirectory)*" />
     </ItemGroup>
 
     <Copy
-      SourceFiles="@(ArtifactsToCopy)"
-      DestinationFolder="$(BuildDir)" />
+       SourceFiles="@(RepositoryArtifacts)"
+       DestinationFolder="$(UniverseBuildDir)" />
 
-    <MSBuild
-      Projects="$(MSBuildThisFileDirectory)PublishPackages.targets"
-      Condition="'$(PublishPackages)'=='true'"
-      Properties="
-        PackagesDirectory=$(RepositoryArtifactsDirectory);
-        DotNetPath=$(DotNetPath);
-        NuGetFeed=$(NuGetPublishVolatileFeed);
-        APIKey=$(APIKey)" />
+    <Exec
+      Command="$(DotNetPath) nuget push &quot;%(RepositoryArtifacts.Identity)&quot; -s $(NuGetFeed) -k $(APIKEY)"
+      Condition="'$(PublishPackages)'=='true' AND '%(RepositoryArtifacts.Extension)'=='.nupkg'" />
 
     <Message Text="============ Done building $(RepositoryToBuild) ============" Importance="High" />
   </Target>
@@ -60,7 +74,7 @@
   <Target Name="_PinVersions">
     <PropertyGroup>
       <PinToolBinary>$(RepositoryRoot)tools\PinVersions\bin\$(Configuration)\netcoreapp1.1\PinVersions.dll</PinToolBinary>
-      <PinVersionArgs>$(DotNetPath) $(PinToolBinary) --graph-specs-root &quot;$(_RestoreGraphSpecsDirectory) &quot; -s &quot;$(BuildDir) &quot; &quot;$(BuildRepositoryRoot) &quot;</PinVersionArgs>
+      <PinVersionArgs>$(DotNetPath) $(PinToolBinary) --graph-specs-root &quot;$(_RestoreGraphSpecsDirectory) &quot; -s &quot;$(UniverseBuildDir) &quot; &quot;$(BuildRepositoryRoot) &quot;</PinVersionArgs>
       <PinVersionArgs Condition="Exists('$(_DependencyPackagesDirectory)')">$(PinVersionArgs) -s &quot;$(_DependencyPackagesDirectory) &quot;</PinVersionArgs>
     </PropertyGroup>
 
