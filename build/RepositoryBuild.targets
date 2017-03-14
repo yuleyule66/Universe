@@ -4,6 +4,7 @@
   <Target Name="BuildRepositories">
     <ItemGroup>
       <BatchedRepository Include="$(MSBuildProjectFullPath)">
+        <Repository>%(RepositoryToBuildInOrder.Identity)</Repository>
         <AdditionalProperties>
           RepositoryToBuild=%(RepositoryToBuildInOrder.Identity);
           BuildRepositoryRoot=$(_CloneRepositoryRoot)%(RepositoryToBuildInOrder.Identity)\
@@ -16,6 +17,26 @@
       <BatchBuilds Condition="$(BuildInParallel) AND '$(CompileOnly)'=='true'">true</BatchBuilds>
       <BatchBuilds Condition="'$(BatchBuilds)'==''">false</BatchBuilds>
     </PropertyGroup>
+
+    <Message
+      Text="Building repositories in the following batches:"
+      Importance="High"
+      Condition="'$(BatchBuilds)'=='true'" />
+
+    <Message
+      Text="%(BatchedRepository.BuildGroup): @(BatchedRepository -> '%(Repository)', ', ')"
+      Importance="High"
+      Condition="'$(BatchBuilds)'=='true'" />
+
+    <Message
+      Text="Building repositories in the following order:"
+      Importance="High"
+      Condition="'$(BatchBuilds)'!='true'" />
+
+    <Message
+      Text="%(BatchedRepository.Repository)"
+      Importance="High"
+      Condition="'$(BatchBuilds)'!='true'" />
 
     <MSBuild
       Projects="@(BatchedRepository)"
